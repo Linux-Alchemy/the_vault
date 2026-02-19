@@ -20,13 +20,10 @@ from vault.models import KDFParams
 
 
 def generate_salt() -> bytes:
-    """Generate a cryptographically random salt for key derivation.
+    """Generate a cryptographically random salt for key derivation."""
+    salt = os.urandom(SALT_LENGTH)
+    return salt
 
-    Returns:
-        16 bytes of random data.
-    """
-    # TODO: Return SALT_LENGTH random bytes using os.urandom
-    pass
 
 
 def derive_key(passphrase: str, salt: bytes, params: KDFParams) -> bytes:
@@ -40,13 +37,18 @@ def derive_key(passphrase: str, salt: bytes, params: KDFParams) -> bytes:
     Returns:
         32 bytes of derived key material suitable for AES-256-GCM.
     """
-    # TODO: Use argon2.low_level.hash_secret_raw() to derive the key
-    #   - secret: passphrase encoded to bytes
-    #   - salt: the salt parameter
-    #   - time_cost, memory_cost, parallelism: from params
-    #   - hash_len: KEY_LENGTH (32)
-    #   - type: argon2.low_level.Type.ID  (this selects Argon2id)
-    pass
+    key = argon2.low_level.hash_secret_raw(
+        secret = passphrase.encode("UTF-8"),
+        salt = salt, 
+        time_cost = KDFParams.time_cost,
+        memory_cost = KDFParams.memory_cost,
+        parallelism = KDFParams.parallelism,
+        hash_len = KEY_LENGTH,
+        type = argon2.low_level.Type.ID,
+    )
+    
+    return key
+
 
 
 def encrypt(data: bytes, key: bytes) -> tuple[bytes, bytes]:
@@ -60,6 +62,8 @@ def encrypt(data: bytes, key: bytes) -> tuple[bytes, bytes]:
         Tuple of (nonce, ciphertext). Both are needed for decryption.
         The nonce is 12 bytes. The ciphertext includes the GCM auth tag.
     """
+
+
     # TODO: Generate a random 12-byte nonce (NONCE_LENGTH) with os.urandom
     # TODO: Create an AESGCM instance with the key
     # TODO: Encrypt: aesgcm.encrypt(nonce, data, None)
