@@ -15,6 +15,7 @@ import argon2.low_level
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from vault.constants import KEY_LENGTH, NONCE_LENGTH, SALT_LENGTH
+from cryptography.exceptions import InvalidTag
 from vault.errors import VaultAuthError
 from vault.models import KDFParams
 
@@ -40,15 +41,14 @@ def derive_key(passphrase: str, salt: bytes, params: KDFParams) -> bytes:
     key = argon2.low_level.hash_secret_raw(
         secret = passphrase.encode("UTF-8"),
         salt = salt, 
-        time_cost = KDFParams.time_cost,
-        memory_cost = KDFParams.memory_cost,
-        parallelism = KDFParams.parallelism,
+        time_cost = params.time_cost,
+        memory_cost = params.memory_cost,
+        parallelism = params.parallelism,
         hash_len = KEY_LENGTH,
         type = argon2.low_level.Type.ID,
     )
-    
-    return key
 
+    return key
 
 
 def encrypt(data: bytes, key: bytes) -> tuple[bytes, bytes]:
@@ -62,14 +62,10 @@ def encrypt(data: bytes, key: bytes) -> tuple[bytes, bytes]:
         Tuple of (nonce, ciphertext). Both are needed for decryption.
         The nonce is 12 bytes. The ciphertext includes the GCM auth tag.
     """
-
-
-    # TODO: Generate a random 12-byte nonce (NONCE_LENGTH) with os.urandom
-    # TODO: Create an AESGCM instance with the key
-    # TODO: Encrypt: aesgcm.encrypt(nonce, data, None)
-    #       The None means no additional authenticated data (AAD)
-    # TODO: Return (nonce, ciphertext)
-    pass
+    nonce = os.urandom(NONCE_LENGTH)
+    aesgcm_instance = AESGCM(key)
+    ciphertext = aesgcm_instance.encrypt(nonce, data, None)
+    return (nonce, ciphertext)
 
 
 def decrypt(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes:
@@ -87,9 +83,10 @@ def decrypt(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes:
         VaultAuthError: If the key is wrong or the ciphertext has been
             tampered with (AEAD tag verification failure).
     """
-    # TODO: Create an AESGCM instance with the key
-    # TODO: Try to decrypt: aesgcm.decrypt(nonce, ciphertext, None)
-    # TODO: Catch cryptography.exceptions.InvalidTag and raise VaultAuthError instead
-    #       Import: from cryptography.exceptions import InvalidTag
-    # TODO: Return the decrypted plaintext bytes
-    pass
+    aesgcm_instance = AESGCM(key)
+    try:
+        decrypted = aesgcm_instance.decrypt(nonce, ciphertext, None)
+        return decrypted
+    except InvalidTag:
+        raise VaultAuthError()
+
