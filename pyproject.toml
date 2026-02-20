@@ -15,7 +15,7 @@ dependencies = [
 dev = ["ipython", "pytest", "ruff"]
 
 [tool.ruff]
-line-length = 88
+line-length = 101
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -19,37 +19,36 @@ from vault.models import KDFParams
 class TestDeriveKey:
     """Tests for the Argon2id key derivation function."""
 
-    def test_derive_key_produces_32_bytes(
-        self, sample_passphrase, sample_salt, fast_kdf_params
-    ):
+    def test_derive_key_produces_32_bytes(self, sample_passphrase, sample_salt, fast_kdf_params):
         """The derived key must be exactly 32 bytes (256 bits) for AES-256."""
-        # TODO: Call derive_key and assert the length is 32
-        pass
+        key = derive_key(sample_passphrase, sample_salt, fast_kdf_params)
+        assert len(key) == 32
 
-    def test_derive_key_deterministic(
-        self, sample_passphrase, sample_salt, fast_kdf_params
-    ):
+
+    def test_derive_key_deterministic(self, sample_passphrase, sample_salt, fast_kdf_params):
         """Same passphrase + salt + params must always produce the same key."""
-        # TODO: Call derive_key twice with identical inputs
-        # TODO: Assert both results are equal
-        pass
+        key1 = derive_key(sample_passphrase, sample_salt, fast_kdf_params)
+        key2 = derive_key(sample_passphrase, sample_salt, fast_kdf_params)
+        assert key1 == key2
 
-    def test_derive_key_different_salt(
-        self, sample_passphrase, fast_kdf_params
-    ):
+
+    def test_derive_key_different_salt(self, sample_passphrase, fast_kdf_params):
         """Different salts must produce different keys (even with same passphrase)."""
-        # TODO: Generate two different salts
-        # TODO: Derive a key with each
-        # TODO: Assert the keys are NOT equal
-        pass
+        salt1 = generate_salt()
+        salt2 = generate_salt()
+        key1 = derive_key(sample_passphrase, salt1, fast_kdf_params)
+        key2 = derive_key(sample_passphrase, salt2, fast_kdf_params)
+        assert key1 != key2
 
-    def test_derive_key_different_passphrase(
-        self, sample_salt, fast_kdf_params
-    ):
+
+    def test_derive_key_different_passphrase(self, sample_salt, fast_kdf_params):
         """Different passphrases must produce different keys."""
-        # TODO: Derive keys with two different passphrases (same salt)
-        # TODO: Assert the keys are NOT equal
-        pass
+        passphrase1 = "sample_pass1"
+        passphrase2 = "sample_pass2"
+        key1 = derive_key(passphrase1, sample_salt, fast_kdf_params)
+        key2 = derive_key(passphrase2, sample_salt, fast_kdf_params)
+        assert key1 != key2
+
 
 
 # ── Encrypt / Decrypt ───────────────────────────────────────────
