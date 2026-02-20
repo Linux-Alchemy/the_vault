@@ -59,45 +59,49 @@ class TestEncryptDecrypt:
 
     def test_encrypt_decrypt_roundtrip(self, derived_key):
         """Encrypting then decrypting must return the original data."""
-        # TODO: Pick some plaintext bytes (e.g. b"hello vault")
-        # TODO: Encrypt it
-        # TODO: Decrypt the result using the same key and returned nonce
-        # TODO: Assert decrypted == original plaintext
-        pass
+        data = b"these are not the droids you're looking for"
+        nonce, encrypted_data = encrypt(data, derived_key)
+        decrypted_data = decrypt(encrypted_data, derived_key, nonce)
+        assert encrypted_data == decrypted_data
+ 
 
     def test_encrypt_produces_different_output_each_time(self, derived_key):
         """Two encryptions of the same data must differ (because nonces differ)."""
-        # TODO: Encrypt the same data twice
-        # TODO: Assert the ciphertexts are NOT equal
-        # (This proves fresh nonces are being generated)
-        pass
+        data = b"grogu is the goat"
+        nonce, encrypt1 = encrypt(data, derived_key)
+        nonce, encrypt2 = encrypt(data, derived_key)
+        assert encrypt1 != encrypt2
+
 
     def test_decrypt_wrong_key_raises_auth_error(self, derived_key):
         """Decrypting with the wrong key must raise VaultAuthError."""
-        # TODO: Encrypt some data with derived_key
-        # TODO: Create a different key (derive from a different passphrase, or just random 32 bytes)
-        # TODO: Try to decrypt with the wrong key
-        # TODO: Assert VaultAuthError is raised (use pytest.raises)
-        pass
+        wrong_key = os.urandom(32)
+        data = b"hotdog flavored water"
+        nonce, cipher_good = encrypt(data, derived_key)
+        nonce, cipher_bad = encrypt(data, wrong_key)
+        assert pytest.raises(VaultAuthError)
+
 
     def test_decrypt_tampered_ciphertext_raises_auth_error(self, derived_key):
         """Flipping a bit in the ciphertext must be detected (AEAD integrity)."""
-        # TODO: Encrypt some data
-        # TODO: Tamper with the ciphertext (e.g. flip one byte: bytearray trick)
-        #       tampered = bytearray(ciphertext)
-        #       tampered[0] ^= 0xFF
-        #       tampered = bytes(tampered)
-        # TODO: Try to decrypt the tampered ciphertext
-        # TODO: Assert VaultAuthError is raised
-        pass
+        data = b"so long and thanks for the fish"
+        nonce, ciphertext = encrypt(data, derived_key)
+        tampered = bytearray(ciphertext)
+        tampered[0] ^= 0xFF
+        tampered = bytes(tampered)
+
+        test = decrypt(tampered, derived_key, nonce)
+        assert pytest.raises(VaultAuthError)
+
 
     def test_decrypt_wrong_nonce_raises_auth_error(self, derived_key):
         """Using the wrong nonce for decryption must fail."""
-        # TODO: Encrypt some data (returns nonce, ciphertext)
-        # TODO: Create a different nonce (e.g. os.urandom(12))
-        # TODO: Try to decrypt with the wrong nonce
-        # TODO: Assert VaultAuthError is raised
-        pass
+        wrong_nonce = os.urandom(12)
+        data = b"episodes 7 - 9 actually aren't that great"
+        nonce, ciphertext = encrypt(data, derived_key)
+
+        decrypted_data = decrypt(ciphertext, derived_key, wrong_nonce)
+        assert pytest.raises(VaultAuthError)
 
 
 # ── Salt Generation ─────────────────────────────────────────────
@@ -108,11 +112,13 @@ class TestGenerateSalt:
 
     def test_generate_salt_length(self):
         """Salt must be exactly 16 bytes."""
-        # TODO: Call generate_salt() and assert length is 16
-        pass
+        salt = generate_salt()
+        assert len(salt) == 16
+
 
     def test_generate_salt_unique(self):
         """Two calls must produce different salts (astronomically likely)."""
-        # TODO: Call generate_salt() twice
-        # TODO: Assert the results are different
-        pass
+        salt1 = generate_salt()
+        salt2 = generate_salt()
+        assert salt1 != salt2
+
