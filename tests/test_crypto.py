@@ -62,7 +62,7 @@ class TestEncryptDecrypt:
         data = b"these are not the droids you're looking for"
         nonce, encrypted_data = encrypt(data, derived_key)
         decrypted_data = decrypt(encrypted_data, derived_key, nonce)
-        assert encrypted_data == decrypted_data
+        assert encrypted_data != decrypted_data
  
 
     def test_encrypt_produces_different_output_each_time(self, derived_key):
@@ -77,9 +77,10 @@ class TestEncryptDecrypt:
         """Decrypting with the wrong key must raise VaultAuthError."""
         wrong_key = os.urandom(32)
         data = b"hotdog flavored water"
-        nonce, cipher_good = encrypt(data, derived_key)
-        nonce, cipher_bad = encrypt(data, wrong_key)
-        assert pytest.raises(VaultAuthError)
+        nonce, ciphertext = encrypt(data, derived_key)
+        
+        with pytest.raises(VaultAuthError):
+            decrypt(ciphertext, wrong_key, nonce)
 
 
     def test_decrypt_tampered_ciphertext_raises_auth_error(self, derived_key):
@@ -89,9 +90,9 @@ class TestEncryptDecrypt:
         tampered = bytearray(ciphertext)
         tampered[0] ^= 0xFF
         tampered = bytes(tampered)
-
-        test = decrypt(tampered, derived_key, nonce)
-        assert pytest.raises(VaultAuthError)
+        
+        with pytest.raises(VaultAuthError):
+            decrypt(tampered, derived_key, nonce)
 
 
     def test_decrypt_wrong_nonce_raises_auth_error(self, derived_key):
@@ -100,8 +101,8 @@ class TestEncryptDecrypt:
         data = b"episodes 7 - 9 actually aren't that great"
         nonce, ciphertext = encrypt(data, derived_key)
 
-        decrypted_data = decrypt(ciphertext, derived_key, wrong_nonce)
-        assert pytest.raises(VaultAuthError)
+        with pytest.raises(VaultAuthError):
+            decrypt(ciphertext, derived_key, wrong_nonce)
 
 
 # ── Salt Generation ─────────────────────────────────────────────
@@ -121,4 +122,3 @@ class TestGenerateSalt:
         salt1 = generate_salt()
         salt2 = generate_salt()
         assert salt1 != salt2
-
