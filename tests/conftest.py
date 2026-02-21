@@ -40,3 +40,29 @@ def derived_key(sample_passphrase, sample_salt, fast_kdf_params):
     from vault.crypto import derive_key
 
     return derive_key(sample_passphrase, sample_salt, fast_kdf_params)
+
+
+# --- Phase 2 fixtures ---
+
+
+@pytest.fixture
+def tmp_vault(tmp_path, sample_passphrase, fast_kdf_params):
+    """Creates a fresh vault file for testing.
+
+    Uses fast KDF params so tests aren't glacial.
+    """
+    from vault.container import create_vault
+
+    vault_path = tmp_path / "test.vlt"
+    create_vault(str(vault_path), sample_passphrase, fast_kdf_params)
+    return vault_path
+
+
+@pytest.fixture
+def vault_key(sample_passphrase, tmp_vault, fast_kdf_params):
+    """Returns the derived key for the test vault."""
+    from vault.container import read_header
+    from vault.crypto import derive_key
+
+    header = read_header(str(tmp_vault))
+    return derive_key(sample_passphrase, header.salt, fast_kdf_params)

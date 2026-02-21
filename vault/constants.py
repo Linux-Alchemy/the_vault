@@ -15,6 +15,18 @@ SALT_LENGTH = 16
 NONCE_LENGTH = 12
 KEY_LENGTH = 32
 
+# Binary header format
+# >  = big-endian
+# 4s = 4-byte magic string ("TVLT")
+# H  = uint16 (version)
+# I  = uint32 (time_cost, memory_cost, parallelism)
+# 16s = 16-byte salt
+# Q  = uint64 (metadata offset)
+# Docs: https://docs.python.org/3/library/struct.html#format-characters
+HEADER_FORMAT = ">4sHIII16sQ"
+HEADER_SIZE = 42  # struct.calcsize(HEADER_FORMAT)
+METADATA_OFFSET_POSITION = 34  # byte offset where metadata_offset lives in header
+
 # Session defaults
 DEFAULT_TIMEOUT = 300  # 5 minutes
 
