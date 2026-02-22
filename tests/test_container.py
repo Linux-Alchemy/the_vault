@@ -27,35 +27,44 @@ class TestHeader:
 
     def test_create_vault_produces_file(self, tmp_vault):
         """Vault file should exist after creation."""
-        # TODO: Assert that tmp_vault exists and has size > 0
-        pass
+        assert os.path.exists(tmp_vault)
+        assert os.path.getsize(tmp_vault) > 0
 
+        
     def test_header_roundtrip(self, tmp_vault):
         """Write a header, read it back — all fields should match."""
-        # TODO: Read the header from tmp_vault
-        # TODO: Assert magic, version, and KDF params are correct
-        # TODO: Assert salt is 16 bytes
-        # TODO: Assert metadata_offset > 0 (metadata was written after header)
-        pass
+        fast_kdf_params = KDFParams()
+        header = read_header(tmp_vault)
+        assert header.magic == MAGIC_BYTES
+        assert header.version == FORMAT_VERSION
+        assert header.kdf_params == fast_kdf_params
+        assert len(header.salt) == 16
+        assert header.metadata_offset > 0
+
 
     def test_header_magic_bytes_correct(self, tmp_vault):
         """First 4 bytes of the file should be b'TVLT'."""
-        # TODO: Open tmp_vault in 'rb', read first 4 bytes
-        # TODO: Assert they equal MAGIC_BYTES
-        pass
+        with open(tmp_vault, 'rb') as f:
+            assert f.read(4) == MAGIC_BYTES
+
 
     def test_header_invalid_magic_raises_corrupt(self, tmp_vault):
         """Corrupted magic bytes should raise VaultCorruptError."""
-        # TODO: Open tmp_vault in 'r+b', write b'XXXX' at offset 0
-        # TODO: Assert read_header raises VaultCorruptError
-        pass
+        with open(tmp_vault, 'rb') as f:
+            f.write(b'XXXX')
+
+        with pytest.raises(VaultCorruptError):
+            read_header(tmp_vault)
+
 
     def test_header_unsupported_version_raises_corrupt(self, tmp_vault):
         """A version number we don't support should raise VaultCorruptError."""
-        # TODO: Open tmp_vault in 'r+b', seek to offset 4
-        # TODO: Write struct.pack('>H', 99) — version 99
-        # TODO: Assert read_header raises VaultCorruptError
-        pass
+        with open(tmp_vault, 'rb') as f:
+            f.seek(0)
+            f.write(struct.pack('>H', 99))
+
+        with pytest.raises(VaultCorruptError):
+            read_header(tmp_vault)
 
 
 class TestMetadata:

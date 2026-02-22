@@ -118,22 +118,7 @@ def read_blob(filepath: str, offset: int, length: int, nonce: bytes, key: bytes)
 
 
 def create_vault(filepath: str, passphrase: str, kdf_params: KDFParams | None = None) -> None:
-    """Create a new vault file from scratch.
-
-    This orchestrates the full vault creation:
-    1. Generate a random salt
-    2. Derive the encryption key from passphrase + salt
-    3. Build the header
-    4. Write the header (creates the file)
-    5. Create empty metadata
-    6. Write encrypted metadata
-    (metadata offset gets updated inside write_metadata)
-
-    Args:
-        filepath: Path for the new vault file.
-        passphrase: User's passphrase.
-        kdf_params: Optional KDF parameters (uses defaults if None).
-    """
+    """Create a new vault file from scratch."""
     
     params = kdf_params or KDFParams()
     salt = generate_salt()
