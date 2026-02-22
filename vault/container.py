@@ -64,95 +64,57 @@ def update_metadata_offset(filepath: str, offset: int) -> None:
 
 
 def write_metadata(filepath: str, metadata: VaultMetadata, key: bytes) -> int:
-    """Encrypt and append a metadata block to the vault file.
+    """Encrypt and append a metadata block to the vault file."""
 
-    On-disk format: [12-byte nonce][4-byte ciphertext length][ciphertext]
+    data = json.dumps(metadata.to_dict()).encode()
+    nonce, ciphertext = encrypt(data, key)
+    with open(filepath, 'ab') as f:
+        current_position = f.tell()
+        f.write(nonce + struct.pack('>I', len(ciphertext)) + ciphertext)
+        
+    update_metadata_offset(filepath, current_position)
+    return current_position
 
-    Args:
-        filepath: Path to the vault file.
-        metadata: The metadata to write.
-        key: Encryption key.
-
-    Returns:
-        The byte offset where this metadata block was written.
-    """
-    # TODO: Serialise metadata to JSON bytes — metadata.to_dict() then json.dumps().encode()
-    # TODO: Encrypt the JSON bytes using crypto.encrypt() → (nonce, ciphertext)
-    # TODO: Open file in 'ab' mode (append binary)
-    # TODO: Record the current position with f.tell() — this is your offset
-    # TODO: Write: nonce + struct.pack('>I', len(ciphertext)) + ciphertext
-    # TODO: Call update_metadata_offset() with the offset you recorded
-    # TODO: Return the offset
-    pass
 
 
 def read_metadata(filepath: str, key: bytes) -> VaultMetadata:
-    """Read and decrypt the latest metadata block from the vault.
+    """Read and decrypt the latest metadata block from the vault."""
 
-    Args:
-        filepath: Path to the vault file.
-        key: Decryption key.
+    header = read_header(filepath)
+    metadata_offset = header.metadata_offset
+    with open(filepath, 'rb') as f:
+        f.seek(metadata_offset)
+        nonce = f.read(12)
+        length = struct.unpack(‘>I’, f.read(4))[0]
+        ciphertext = f.read(length)
 
-    Returns:
-        VaultMetadata with all entries.
+    decrypted = decrypt(ciphertext, key, nonce)
+    return  VaultMetadata.from_dict(json.loads(decrypted))
 
-    Raises:
-        VaultAuthError: If key is wrong (AEAD tag failure).
-    """
-    # TODO: Read the header to get metadata_offset
-    # TODO: Open in 'rb', seek to metadata_offset
-    # TODO: Read 12 bytes (nonce), then 4 bytes and unpack as '>I' (ciphertext length)
-    # TODO: Read that many bytes (ciphertext)
-    # TODO: Decrypt using crypto.decrypt(ciphertext, key, nonce)
-    # TODO: json.loads() the plaintext, then VaultMetadata.from_dict()
-    # TODO: Return the metadata
-    pass
 
 
 def append_blob(filepath: str, data: bytes, key: bytes) -> tuple[int, int, bytes]:
-    """Encrypt and append a data blob to the vault file.
+    """Encrypt and append a data blob to the vault file."""
 
-    On-disk format: [ciphertext] (nonce stored in metadata, not on disk with blob)
+    nonce, ciphertext = encrypt(data, key)
+    with open(filepath, 'ab') as f:
+        current_position = f.tell()
+        f.write(ciphertext)
 
-    Args:
-        filepath: Path to the vault file.
-        data: Plaintext bytes to encrypt and store.
-        key: Encryption key.
+    return (current_position, len(ciphertext), nonce)
 
-    Returns:
-        Tuple of (offset, length, nonce) for storing in metadata.
-        offset: byte position where ciphertext starts in the file.
-        length: number of ciphertext bytes written.
-        nonce: the 12-byte nonce needed for decryption.
-    """
-    # TODO: Encrypt data using crypto.encrypt() → (nonce, ciphertext)
-    # TODO: Open file in 'ab' mode
-    # TODO: Record position with f.tell() — this is offset
-    # TODO: Write just the ciphertext (nonce goes in metadata, not on disk)
-    # TODO: Return (offset, len(ciphertext), nonce)
-    pass
 
 
 def read_blob(filepath: str, offset: int, length: int, nonce: bytes, key: bytes) -> bytes:
-    """Read and decrypt a data blob from the vault file.
+    """Read and decrypt a data blob from the vault file."""
 
-    Args:
-        filepath: Path to the vault file.
-        offset: Byte offset where the ciphertext starts.
-        length: Number of bytes of ciphertext to read.
-        nonce: 12-byte nonce for decryption (from metadata).
-        key: Decryption key.
+    with open(filepath, 'rb') as f:
+        f.seek(offset)
+        ciphertext = f.read(length)
 
-    Returns:
-        Decrypted plaintext bytes.
+    decrypted = decrypt(ciphertext, key, nonce)
+    return decrypted
 
-    Raises:
-        VaultAuthError: If key is wrong or data is tampered.
-    """
-    # TODO: Open in 'rb', seek to offset, read length bytes
-    # TODO: Decrypt using crypto.decrypt(ciphertext, key, nonce)
-    # TODO: Return the plaintext
-    pass
 
 
 def create_vault(filepath: str, passphrase: str, kdf_params: KDFParams | None = None) -> None:
@@ -172,11 +134,14 @@ def create_vault(filepath: str, passphrase: str, kdf_params: KDFParams | None = 
         passphrase: User's passphrase.
         kdf_params: Optional KDF parameters (uses defaults if None).
     """
-    # TODO: Use kdf_params or create default KDFParams()
-    # TODO: Generate salt with crypto.generate_salt()
-    # TODO: Derive key with crypto.derive_key(passphrase, salt, params)
-    # TODO: Create a VaultHeader with the params, salt, and metadata_offset=0
-    # TODO: Open file in 'wb' mode and write the packed header (creates the file)
-    # TODO: Create empty VaultMetadata with vault_created as ISO timestamp, version, empty entries
-    # TODO: Call write_metadata() to encrypt and append it (this also updates the header offset)
-    pass
+    
+    params = kdf_params or KDFParams()
+    salt = generate_salt()
+    key = derive_key(passphrase, salt, params)
+    header = VaultHeader(kdf_params=params, salt=salt, metadata_offset=0)
+
+    write_header(filepath, header)
+
+    vault_created = VaultMetadata(vault_created=datetime.now(timezone.utc).isoformat())
+    write_metadata(filepath, vault_created, key)
+
