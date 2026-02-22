@@ -29,52 +29,38 @@ from vault.models import KDFParams, VaultHeader, VaultMetadata
 
 
 def write_header(filepath: str, header: VaultHeader) -> None:
-    """Write the 42-byte header to the start of the vault file.
+    """Write the 42-byte header to the start of the vault file."""
 
-    Args:
-        filepath: Path to the vault file.
-        header: VaultHeader with all fields populated.
-    """
-    # TODO: Use struct.pack with HEADER_FORMAT to pack the header fields
-    # TODO: The fields to pack (in order): magic, version, time_cost, memory_cost,
-    #       parallelism, salt, metadata_offset
-    # TODO: Open the file in 'r+b' mode (or 'wb' if creating) and write at offset 0
-    pass
+    packed = struct.pack(HEADER_FORMAT, header.magic, header.version, header.kdf_params.time_cost, header.kdf_params.memory_cost, header.kdf_params.parallelism, header.salt, header.metadata_offset)
+
+    with open(filepath, 'wb') as f:
+        f.write(packed)
 
 
 def read_header(filepath: str) -> VaultHeader:
-    """Read and validate the 42-byte header from a vault file.
+    """Read and validate the 42-byte header from a vault file."""
+    with open(filepath, 'rb') as f:
+        raw_bytes = f.read(HEADER_SIZE)
 
-    Args:
-        filepath: Path to the vault file.
+    magic, version, time_cost, memory_cost, parallelism, salt, metadata_offset = struct.unpack(HEADER_FORMAT, raw_bytes)
+    if magic != MAGIC_BYTES:
+        raise VaultCorruptError("Invalid magic bytes")
 
-    Returns:
-        VaultHeader populated from the file.
+    if version > FORMAT_VERSION:
+        raise VaultCorruptError("Invalid version")
 
-    Raises:
-        VaultCorruptError: If magic bytes don't match or version is unsupported.
-    """
-    # TODO: Open the file in 'rb' mode, read HEADER_SIZE bytes
-    # TODO: Use struct.unpack with HEADER_FORMAT to unpack the fields
-    # TODO: Validate magic bytes == MAGIC_BYTES, raise VaultCorruptError if not
-    # TODO: Validate version <= FORMAT_VERSION, raise VaultCorruptError if not
-    # TODO: Build and return a VaultHeader from the unpacked fields
-    pass
+    kdf = KDFParams(time_cost=time_cost, memory_cost=memory_cost, parallelism=parallelism)
+    header = VaultHeader(magic=magic, version=version, kdf_params=kdf, salt=salt, metadata_offset=metadata_offset)
+    return header
 
-
+    
 def update_metadata_offset(filepath: str, offset: int) -> None:
-    """Update the metadata offset pointer in the header.
+    """Update the metadata offset pointer in the header."""
 
-    This is the ONLY in-place write in the entire vault system.
-    It seeks to byte 34 and writes a uint64.
+    with open(filepath, 'r+b') as f:
+        f.seek(METADATA_OFFSET_POSITION)
+        f.write(struct.pack('>Q', offset))
 
-    Args:
-        filepath: Path to the vault file.
-        offset: New metadata offset (byte position in file).
-    """
-    # TODO: Open in 'r+b' mode, seek to METADATA_OFFSET_POSITION
-    # TODO: Write struct.pack('>Q', offset)
-    pass
 
 
 def write_metadata(filepath: str, metadata: VaultMetadata, key: bytes) -> int:
