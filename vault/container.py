@@ -85,7 +85,7 @@ def read_metadata(filepath: str, key: bytes) -> VaultMetadata:
     with open(filepath, 'rb') as f:
         f.seek(metadata_offset)
         nonce = f.read(12)
-        length = struct.unpack(‘>I’, f.read(4))[0]
+        length = struct.unpack(">I", f.read(4))[0]
         ciphertext = f.read(length)
 
     decrypted = decrypt(ciphertext, key, nonce)
@@ -129,4 +129,3 @@ def create_vault(filepath: str, passphrase: str, kdf_params: KDFParams | None = 
 
     vault_created = VaultMetadata(vault_created=datetime.now(timezone.utc).isoformat())
     write_metadata(filepath, vault_created, key)
-

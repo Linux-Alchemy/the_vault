@@ -5,7 +5,7 @@
 
 import os
 import struct
-
+from datetime import datetime, timezone
 import pytest
 
 from vault.constants import FORMAT_VERSION, HEADER_FORMAT, HEADER_SIZE, MAGIC_BYTES
@@ -58,7 +58,8 @@ class TestHeader:
     def test_header_unsupported_version_raises_corrupt(self, tmp_vault):
         """A version number we don't support should raise VaultCorruptError."""
         with open(tmp_vault, 'r+b') as f:
-            f.seek(0)
+            # Version field starts at byte offset 4 (after 4-byte magic).
+            f.seek(4)
             f.write(struct.pack('>H', 99))
 
         with pytest.raises(VaultCorruptError):
@@ -88,9 +89,9 @@ class TestMetadata:
 
     def test_metadata_wrong_key_raises_auth_error(self, tmp_vault):
         """Decrypting metadata with the wrong key should raise VaultAuthError."""
-        # TODO: Generate a random wrong key (os.urandom(32))
-        # TODO: Assert read_metadata raises VaultAuthError
-        pass
+        wrong_key = os.urandom(32)
+        with pytest.raises(VaultAuthError):
+            read_metadata(tmp_vault, wrong_key)
 
 
 class TestBlob:
@@ -98,26 +99,30 @@ class TestBlob:
 
     def test_blob_roundtrip(self, tmp_vault, vault_key):
         """Data should survive encrypt→append→read→decrypt."""
-        # TODO: Create some test data (e.g. b'super secret password')
-        # TODO: append_blob to tmp_vault
-        # TODO: read_blob using the returned offset, length, nonce
-        # TODO: Assert decrypted data matches original
-        pass
+        plaintext = b"secret_password"
+        offset, length, nonce = append_blob(tmp_vault, plaintext, vault_key)
+        decrypted = read_blob(tmp_vault, offset, length, nonce, vault_key)
+        assert plaintext == decrypted
 
     def test_blob_wrong_key_raises_auth_error(self, tmp_vault, vault_key):
         """Decrypting a blob with the wrong key should raise VaultAuthError."""
-        # TODO: Append a blob with vault_key
-        # TODO: Try to read it back with os.urandom(32) as the key
-        # TODO: Assert VaultAuthError is raised
-        pass
+        data = b"heart of gold"
+        bad_key = os.urandom(32)
+        offset, length, nonce = append_blob(tmp_vault, data, vault_key)
+        with pytest.raises(VaultAuthError):
+            read_blob(tmp_vault, offset, length, nonce, bad_key)
+
 
     def test_append_preserves_existing_data(self, tmp_vault, vault_key):
         """Appending new blobs shouldn't corrupt earlier ones."""
-        # TODO: Append blob_1 (e.g. b'first secret')
-        # TODO: Append blob_2 (e.g. b'second secret')
-        # TODO: Read blob_1 back — should still be intact
-        # TODO: Read blob_2 back — should also be correct
-        pass
+        data1 = b"pippen was kind of a doosh"
+        data2 = b"seriously though, what's with pippen?"
+        offset1, length1, nonce1 = append_blob(tmp_vault, data1, vault_key)
+        offset2, length2, nonce2 = append_blob(tmp_vault, data2, vault_key)
+        decrypt1 = read_blob(tmp_vault, offset1, length1, nonce1, vault_key)
+        decrypt2 = read_blob(tmp_vault, offset2, length2, nonce2, vault_key)
+        assert decrypt1 == data1
+        assert decrypt2 == data2
 
 
 class TestCreateVault:
@@ -125,7 +130,10 @@ class TestCreateVault:
 
     def test_create_vault_empty_metadata_decryptable(self, tmp_vault, vault_key):
         """A freshly created vault's metadata should decrypt successfully."""
-        # TODO: Read metadata from the fresh vault
-        # TODO: Assert entries list is empty
-        # TODO: Assert vault_created is a non-empty string (ISO timestamp)
-        pass
+        metadata = read_metadata(tmp_vault, vault_key)
+        assert metadata.entries == []
+        assert isinstance(metadata.vault_created, str)
+        parsed = datetime.fromisoformat(metadata.vault_created)
+        assert parsed.tzinfo is not None
+
+
